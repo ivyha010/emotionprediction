@@ -54,7 +54,7 @@ def freeCacheMemory():
 
 
 # Build dataloaders
-def train_dataloader_for_LSTM(trfeatures, trvalence, args):
+def train_dataloader_for_LSTM(trfeatures, trarousal, args):
     class my_dataset(Dataset):
         def __init__(self, data, label):
             self.data = data
@@ -70,8 +70,8 @@ def train_dataloader_for_LSTM(trfeatures, trvalence, args):
     train_features = np.concatenate([value.unsqueeze(0) for _, value in trfeatures.items()], axis=1)
     train_features = train_features.squeeze(0)
     #
-    train_valence = np.concatenate([value.unsqueeze(0) for _, value in trvalence.items()], axis=1)
-    train_valence = train_valence.reshape(-1, 1)
+    train_arousal = np.concatenate([value.unsqueeze(0) for _, value in trarousal.items()], axis=1)
+    train_arousal = train_arousal.reshape(-1, 1)
     #
     # Split inputs into chunks of the sequence length
     featureschunks = []
@@ -79,16 +79,16 @@ def train_dataloader_for_LSTM(trfeatures, trvalence, args):
         chunk = train_features[k: (k + args.seq_length), :]
         featureschunks.append(chunk)  # [newaxis, :, :]) # create a 3D numpy array from a 2D numpy array
 
-    train_valence_for_chunks = train_valence[0:(len(train_valence) - (args.seq_length - 1))]
+    train_arousal_for_chunks = train_arousal[(args.seq_length - 1):len(train_arousal)]
 
     # Build dataloaders
-    train_loader = DataLoader(dataset=my_dataset(featureschunks, train_valence_for_chunks), batch_size=args.batch_size,
+    train_loader = DataLoader(dataset=my_dataset(featureschunks, train_arousal_for_chunks), batch_size=args.batch_size,
                               shuffle=True)
     #
     return train_loader
 
 
-def validate_dataloader_for_LSTM(tfeatures, tvalence, args):
+def validate_dataloader_for_LSTM(tfeatures, tarousal, args):
     class my_dataset(Dataset):
         def __init__(self, data, label):
             self.data = data
@@ -106,11 +106,10 @@ def validate_dataloader_for_LSTM(tfeatures, tvalence, args):
         chunk = tfeatures[k: (k + args.seq_length), :]
         tfeatureschunks.append(chunk)
 
-    tvalence_for_chunks = tvalence[0:(len(tvalence) - (args.seq_length - 1))]
+    tarousal_for_chunks = tarousal[(args.seq_length - 1):len(tarousal)]
 
     # Build dataloaders   np.array(tfeatures)
-    validate_loader = DataLoader(dataset=my_dataset(tfeatureschunks, np.array(tvalence_for_chunks.reshape(-1, 1))),
-                                 batch_size=args.batch_size, shuffle=False)
+    validate_loader = DataLoader(dataset=my_dataset(tfeatureschunks, np.array(tarousal_for_chunks.reshape(-1, 1))), batch_size=args.batch_size, shuffle=False)
     #
     return validate_loader
 
@@ -142,22 +141,21 @@ def train_func(train_loader, validate_loader, the_model, device, criter, optimiz
         ###################
         the_model.train()  # prep model for training
 
-        for (feature_chunks, valence_chunks) in train_loader:
-            feature_chunks, valence_chunks = feature_chunks.to(device), valence_chunks.to(device)
+        for (feature_chunks, arousal_chunks) in train_loader:
+            feature_chunks, arousal_chunks = feature_chunks.to(device), arousal_chunks.to(device)
             #
             # clear the gradients of all optimized variables
             optimizer.zero_grad()
             # forward pass: compute predicted outputs by passing inputs to the model
-            output = the_model.forward(
-                feature_chunks)  # the_model.forward(np.reshape(featuresbatch, (-1, args.seq_length, input_size)))
+            output = the_model.forward(feature_chunks)  #the_model.forward(np.reshape(featuresbatch, (-1, args.seq_length, input_size)))
             output /= T
             # calculate the loss
             # KL Loss
             # output = F.log_softmax(output, dim=1)
-            # loss = criter(output.float(), valence.float())
+            # loss = criter(output.float(), arousal.float())
             # -----------------------------------------------------------------------------
             # Cross Entropy Loss
-            loss = criter(output.squeeze(1), valence_chunks.squeeze(1))  # CrossEntropy Loss
+            loss = criter(output.squeeze(1), arousal_chunks.squeeze(1))  # CrossEntropy Loss
             # -----------------------------------------------------------------------------
             # backward pass: compute gradient of the loss with respect to model parameters
             loss.backward(retain_graph=True)
@@ -171,21 +169,21 @@ def train_func(train_loader, validate_loader, the_model, device, criter, optimiz
         ######################
         the_model.eval()  # prep model for evaluation
 
-        for (vfeature_chunks, vvalence_chunks) in validate_loader:
-            vfeature_chunks, vvalence_chunks = vfeature_chunks.to(device), vvalence_chunks.to(device)
+        for (vfeature_chunks, varousal_chunks) in validate_loader:
+            vfeature_chunks, varousal_chunks = vfeature_chunks.to(device), varousal_chunks.to(device)
 
             valid_output = the_model(vfeature_chunks)
             valid_output /= T
 
             # validation loss:
             # Cross Entropy Loss
-            batch_valid_losses = criter(valid_output.squeeze(1), vvalence_chunks.squeeze(1))
+            batch_valid_losses = criter(valid_output.squeeze(1), varousal_chunks.squeeze(1))
             valid_losses.append(batch_valid_losses.item())
 
             # ----------------------------------------------------------------------------
             # KL loss
             # valid_output = F.log_softmax(valid_output,dim=1)
-            # valid_loss = criter(valid_output.float(), vvalence.unsqueeze(1).float())
+            # valid_loss = criter(valid_output.float(), varousal.unsqueeze(1).float())
             # ----------------------------------------------------------------------------
 
             del valid_output
@@ -237,15 +235,15 @@ def validate_func(validate_loader, the_model, device):
     accuracy_1 = 0
 
     # pearson_disc = 0
-    for (vfeature_chunks, vvalence_chunks) in validate_loader:
-        vfeature_chunks, vvalence_chunks = vfeature_chunks.to(device), vvalence_chunks.to(device)
+    for (vfeature_chunks, varousal_chunks) in validate_loader:
+        vfeature_chunks, varousal_chunks = vfeature_chunks.to(device), varousal_chunks.to(device)
 
         valid_output = the_model(vfeature_chunks)
         valid_output /= T
 
         # Accuracy and Accuracy +-1
         _, prediction = torch.max(valid_output.data, 1)
-        targets = vvalence_chunks.squeeze(1)
+        targets = varousal_chunks.squeeze(1)
         acc = torch.sum(prediction == targets)
         accuracy += acc.item()
 
@@ -266,8 +264,7 @@ def validate_func(validate_loader, the_model, device):
     accuracy_1 = (accuracy_1 / validate_length) + accuracy
 
     print('Validation (Use both Audio and Video features): ')
-    print('- Discrete case: For Valence: Accuracy: {:.5f} %, Accuracy+/-1: {:.5f} %  \n'.format(100 * accuracy,
-                                                                                                100 * accuracy_1))
+    print('- Discrete case: For Arousal: Accuracy: {:.5f} %, Accuracy+/-1: {:.5f} %  \n'.format(100 * accuracy, 100 * accuracy_1))
 
     return all_prediction, accuracy, accuracy_1
 
@@ -287,35 +284,33 @@ def checkpoint(model_checkpoint, epoch):
     print("Checkpoint saved to {}".format(model_out_path))
 
 
-# Load extracted features and valence files
+# Load extracted features and arousal files
 def loadingfiles(device):
-    # Load extracted features and valence .h5 files
+    # Load extracted features and arousal .h5 files
     print('\n')
-    print('Loading h5 files containing extracted features and valence values.....')
+    print('Loading h5 files containing extracted features and arousal values.....')
     loading_time = time.time()
-    h5file = h5py.File(os.path.join(dir_path, 'only_OF.h5'), 'r')
+    h5file = h5py.File(os.path.join(dir_path,'rgb_OF_audio_concat.h5'),'r')
     train_features = {}
     for k, v in h5file.items():
-        train_features[int(k)] = torch.from_numpy(
-            v.value)  # .to(device)  # Convert numpy arrays to tensors on gpu  # .to(device)
+        train_features[int(k)] = torch.from_numpy(v.value)  # .to(device)  # Convert numpy arrays to tensors on gpu  # .to(device)
     h5file.close()
     #
     print('Time for loading extracted features: ', time.time() - loading_time)
     #
-    h5file = h5py.File(os.path.join(dir_path, 'my_discrete_valence_OF.h5'),
+    h5file = h5py.File(os.path.join(dir_path, 'my_discrete_arousal_concat.h5'),
                        'r')
-    train_valence = {}
+    train_arousal = {}
     for k, v in h5file.items():
-        train_valence[int(k)] = torch.from_numpy(
-            v.value)  # .to(device)  # Convert numpy arrays to tensors on gpu  # .to(device)
+        train_arousal[int(k)] = torch.from_numpy(v.value)  # .to(device)  # Convert numpy arrays to tensors on gpu  # .to(device)
     h5file.close()
 
     for index in range(0, len(movlist)):
-        length = min(train_features[index].size()[0], train_valence[index].size()[0])
+        length = min(train_features[index].size()[0], train_arousal[index].size()[0])
         train_features[index] = train_features[index][0:length, :].clone()
-        train_valence[index] = train_valence[index][0:length].clone()
+        train_arousal[index] = train_arousal[index][0:length].clone()
 
-    return train_features, train_valence
+    return train_features, train_arousal
 
 
 # Main
@@ -331,7 +326,10 @@ def main(args):
 
     # ------------------------------------------------------------------------------------------------
     # input_size for the 2LSTM-layer model
-    input_size = 1582
+    RGB_size = 2048
+    OF_size = 2048
+    Audio_size = 1582
+    input_size = RGB_size + OF_size + Audio_size
     # -----------------------------------------------------------------------------------------------
     # Cross-validation
     print('Cross-validation.....')
@@ -356,25 +354,26 @@ def main(args):
         optimizer = torch.optim.SGD(model.parameters(), args.lr, weight_decay=args.wd)  # 0.05
 
         # for model training
-        train_features, train_valence = loadingfiles(device)
+        train_features, train_arousal = loadingfiles(device)
 
         # for model validation
         validate_features = train_features[index].clone()
-        validate_valence = train_valence[index].clone()
+        validate_arousal = train_arousal[index].clone()
 
         # for model training
         train_features.pop(index)
-        train_valence.pop(index)
+        train_arousal.pop(index)
 
         #
-        train_dataset = train_dataloader_for_LSTM(train_features, train_valence, args)
-        validate_dataset = validate_dataloader_for_LSTM(validate_features, validate_valence, args)
+        train_dataset = train_dataloader_for_LSTM(train_features, train_arousal, args)
+        validate_dataset = validate_dataloader_for_LSTM(validate_features, validate_arousal, args)
         # Train and validate on each epoch
         print('Validate on: ', movlist[index], '. Train on the rest.')
 
         model, train_losses, valid_losses = train_func(train_dataset, validate_dataset, model, device, criterion,
                                                        optimizer, args.num_epochs, args.patience)
         print('Training time for ', movlist[index], ': ', time.time() - m_start_time)
+
 
         val_output_disc, val_accuracy, val_accuracy_1 = validate_func(validate_dataset, model, device)
 
@@ -384,19 +383,19 @@ def main(args):
         # ----------------------------------------------------------------------------------------------------------
         # Save model
         # Model name
-        model_name = movlist[index] + '_2LSTM_Valence_OF.pth'
+        model_name = movlist[index] + '_2LSTM_Arousal_RGB_OF_Audio.pth'
         torch.save(model.state_dict(), os.path.join(args.model_path, model_name))
 
         # ---------------------------------------------------------------------------------------------------------------
-        # save predicted valence labels
-        afilename = movlist[index] + '_predValence_2LSTM_classification_OF.h5'
+        # save predicted arousal labels
+        afilename = movlist[index] + '_predArousal_2LSTM_classification_RGB_OF_Audio.h5'
         h5file = h5py.File(os.path.join(pred_path, afilename), mode='w')
-        # savedata = val_output_disc.cpu()
+        #savedata = val_output_disc.cpu()
         h5file.create_dataset('default', data=np.array(val_output_disc, dtype=np.int32))  # .detach().numpy()
         h5file.close()
 
         # Free memory
-        del model, optimizer, validate_features, validate_valence, val_output_disc, train_features, train_valence
+        del model, optimizer, validate_features, validate_arousal, val_output_disc, train_features, train_arousal
         freeCacheMemory()
         #
         print('Running time for ', movlist[index], ' : ', time.time() - m_start_time)
@@ -406,15 +405,15 @@ def main(args):
     print('-----------------------------------------------RESULTS----------------------------------------------- \n')
     print('12-fold cross-validation: ')
 
-    print('For discrete case: Valence: Accuracy: {:.5f}, Accuracy+/-1: {:.5f} \n'.format(
-        100 * Accuracy_ave / movlistlength, 100 * Accuracy_1_ave / movlistlength))
+    print( 'For discrete case: Arousal: Accuracy: {:.5f}, Accuracy+/-1: {:.5f} \n'.format(
+            100 * Accuracy_ave / movlistlength, 100 * Accuracy_1_ave / movlistlength))
 
 
 if __name__ == "__main__":
     #
-    dir_path = '/home/minhdanh/Documents/LSTM_OF_for_Valence'   # path to extracted features and valence files
+    dir_path = '/home/minhdanh/Documents/1LSTM_RGB_OF_Audio'  # path to extracted features and arousal files
     model_path = os.path.join(dir_path, 'Thao_model')  # path to save models
-    pred_path = os.path.join(dir_path, 'PredictedValues')  # path to save predicted valence values
+    pred_path = os.path.join(dir_path, 'PredictedValues')  # path to save predicted arousal values
     # ------------------------------------------------------------------------------------------------------------------
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', type=str, default=model_path, help='path for saving trained models')
@@ -425,10 +424,11 @@ if __name__ == "__main__":
                         help='early stopping patience; how long to wait after last time validation loss improved')
 
     parser.add_argument('--batch_size', type=int, default=128, help='number of feature vectors loaded per batch')  # 128
-    parser.add_argument('--seq_length', type=int, default=5,  # 5
+    parser.add_argument('--seq_length', type=int, default=5,   # 5
                         help='the sequence length of the many-to-one LSTM => the lag is n-1')  # 128
     parser.add_argument('--lr', type=float, default=0.005, metavar='LR', help='initial learning rate')  # 0.005
     parser.add_argument('--wd', type=float, default=0.005, metavar='WD', help='weight decay')  # 0.005
+
 
     parser.add_argument('--no-cuda', action='store_true', default=False, help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1, metavar='S', help='random seed (default: 123)')
@@ -439,7 +439,7 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------------------------------------------------------
     movlist = ['BMI', 'LOR', 'GLA', 'DEP', 'CRA', 'CHI', 'FNE', 'ABE', 'MDB', 'NCO', 'RAT', 'SIL']
     img_folders = []  # folders of images(video frames)
-    img_csvfiles = []  # .csv files containing image names, valence and valence values
+    img_csvfiles = []  # .csv files containing image names, valence and arousal values
     for movie in movlist:
         img_folders.append(dir_path + movie)  # movie: movie's title
         img_csvfiles.append(dir_path + 'ave_' + movie + '.csv')  # 'ave_' + movie + '.csv':  csv file name
