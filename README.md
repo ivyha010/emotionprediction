@@ -1,4 +1,4 @@
-# Project Title
+# Predicting emotion of viewers evoked by movie clips. 
 
 The goal of this project is to  develop  and  analyze  multimodal  models  for  predicting  experienced  affective  responses of viewers watching movie clips. We develop hybrid multimodal prediction models based on both the video and audio of the clips. For the video content, we extract features from RGB frames and optical flow using pretrained neural networks.  For the audio model, we compute  an  enhanced  set  of  low-level  descriptors  including  intensity,  loudness,  cepstrum,  linear  predictor  coefficients, pitch and voice quality.  Both visual and audio features are then concatenated to create audio-visual features, which are used to predict the evoked emotion. To classify the movie clips into the corresponding affective response categories, we propose two approaches based on deep neural network models.  The first one is based on fully connected layers without memory on the time component, the second incorporates the sequential dependency with an LSTM. 
 
