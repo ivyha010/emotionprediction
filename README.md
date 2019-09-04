@@ -16,7 +16,7 @@ We use ResNet-50 model, except the last fully connected layer, pre-trained on Im
 
 * Motion input data: 
 We use [PWC-Net](https://github.com/NVlabs/PWC-Net/tree/master/PyTorch) to extract optical flow fields from RGB frames and save as .jpg images in disk. 
-We use a stack of 10 sequential optical flows as the input to the ResNet-101 model that has been pre-trained on the ImageNet classification task. The first convolutional layer and the last classification layer, which had been fine-tuned to be able to ingest 10 stacks of sequential optical flows to predict action recognition on UCF-101. Pre-trained model available [here](https://github.com/jeffreyhuang1/twostream-action-recognition). 
+We use a stack of 10 sequential optical flows as the input to the ResNet-101 model that has been pre-trained on the ImageNet classification task. The first convolutional layer and the last classification layer, which had been fine-tuned to be able to ingest 10 stacks of sequential optical flows to predict action recognition on UCF-101. Pre-trained model is available at [here](https://github.com/jeffreyhuang1/twostream-action-recognition). 
 We remove the last fully connected classification layer in the ResNet-101 model and freeze the rest.
 
 * Audio input data:
