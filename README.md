@@ -26,7 +26,7 @@ challenge.
 
 ## Training and testing
 
-We do leave-one-out cross-validation on the extended Cognimuse dataset including 12 movie clips, therefore, we have 12 pre-trained models. The uploaded pre-trained models saved in *.path* files are the best ones.
+We do leave-one-out cross-validation on the extended Cognimuse dataset including 12 movie clips, therefore, we have 12 pre-trained models. The uploaded pre-trained models saved in *.pth* files are the best ones.
  
 ## Paper & Citation
 
