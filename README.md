@@ -4,7 +4,7 @@ The goal of this project is to  develop  and  analyze  multimodal  models  for  
 
 ## Prerequisites
 
-The code snippets were implemented in Python 3.6 and the experiments were run on a NVIDIA GTX 1070
+The code snippets were implemented in Ubuntu 18, Python 3.6 and the experiments were run on a NVIDIA GTX 1070. 
 
 ## Data
 
@@ -26,8 +26,8 @@ challenge.
 
 ## Training and testing
 
-We do leave-one-out cross-validation on the extended Cognimuse dataset.
-
+We do leave-one-out cross-validation on the extended Cognimuse dataset including 12 movie clips, therefore, we have 12 pre-trained models. The uploaded pre-trained models saved in *.path* files are the best ones.
+ 
 ## Paper & Citation
 
 If you use this code, please cite the following paper: 
